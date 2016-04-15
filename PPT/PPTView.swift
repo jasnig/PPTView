@@ -8,10 +8,14 @@
 
 import UIKit
 
-public class PageView: UIView {
+
+public class PPTView: UIView {
     // 滚动方向
     public enum Direction {
+        /// 当前的图片向左移
         case Left
+        
+        /// 当前的图片向右移
         case Right
         
     }
@@ -109,7 +113,7 @@ public class PageView: UIView {
     private var leftIndex = -1
     private var rightIndex = 1
     
-    
+    /// 计时器
     private var timer: NSTimer?
     
     private lazy var scrollView: UIScrollView = { [weak self] in
@@ -156,6 +160,7 @@ public class PageView: UIView {
     lazy var leftImageView = UIImageView()
     
     //MARK:- 初始化
+    // 遍历构造器, 不监控点击事件的时候可以使用
     public convenience init(imagesCount: Int, setupImageForImageView: SetupImageForImageView?) {
         self.init(imagesCount: imagesCount, setupImageForImageView: setupImageForImageView, pageDidClick: nil)
     }
@@ -290,7 +295,7 @@ public class PageView: UIView {
     }
 }
 
-extension PageView: UIScrollViewDelegate {
+extension PPTView: UIScrollViewDelegate {
     
     // 手指触摸到时
     public func scrollViewWillBeginDragging(scrollView: UIScrollView) {
@@ -303,6 +308,7 @@ extension PageView: UIScrollViewDelegate {
     // 松开手指时
     public func scrollViewDidEndDragging(scrollView: UIScrollView, willDecelerate decelerate: Bool) {
         if autoScroll {
+            scrollDirection = .Left
             startTimer()
 
         }
@@ -311,6 +317,7 @@ extension PageView: UIScrollViewDelegate {
     /// 代码设置scrollview的contentOffSet滚动完成后调用
     public func scrollViewDidEndScrollingAnimation(scrollView: UIScrollView) {
         // 重新加载图片
+        scrollDirection = .Left
         loadImages()
 
     }
@@ -345,6 +352,7 @@ extension PageView: UIScrollViewDelegate {
         leftIndex = (currentIndex - 1 + imagesCount) % imagesCount
         rightIndex = (currentIndex + 1) % imagesCount
         
+        
         setupImageForImageView?(imageView: currentImageView, index: currentIndex)
         setupImageForImageView?(imageView: rightImageView, index: rightIndex)
         setupImageForImageView?(imageView: leftImageView, index: leftIndex)
@@ -354,7 +362,7 @@ extension PageView: UIScrollViewDelegate {
             textLabel.text = titles[currentIndex]
 
         }
-        
+        // 将currentImageView显示在屏幕上
         scrollView.contentOffset = CGPoint(x: bounds.size.width, y: 0)
 
 
