@@ -5,9 +5,50 @@
 //  Created by jasnig on 16/4/2.
 //  Copyright © 2016年 ZeroJ. All rights reserved.
 //
-
+// github: https://github.com/jasnig
+// 简书: http://www.jianshu.com/users/fb31a3d1ec30/latest_articles
 import UIKit
 
+class PPTImageView: UIView {
+    lazy var titleLabel: UILabel = {
+        let titleLabel = UILabel()
+        titleLabel.textColor = UIColor.whiteColor()
+        titleLabel.backgroundColor = UIColor.blackColor().colorWithAlphaComponent(0.3)
+        titleLabel.font = UIFont.systemFontOfSize(14.0)
+        
+        return titleLabel
+    }()
+    
+    lazy var imageView: UIImageView = {
+        let imageView = UIImageView()
+        imageView.contentMode = .ScaleAspectFill
+        /// 剪去多余的部分
+        imageView.clipsToBounds = true
+        imageView.userInteractionEnabled = true
+        return imageView
+    }()
+    
+    convenience init() {
+        self.init(frame: CGRectZero)
+    }
+    
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        addSubview(imageView)
+        addSubview(titleLabel)
+    }
+    
+    required init?(coder aDecoder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        imageView.frame = bounds
+        titleLabel.frame = CGRect(x: 0, y: bounds.height - 28.0, width: bounds.width, height: 28.0)
+        
+    }
+}
 
 public class PPTView: UIView {
     // 滚动方向
@@ -29,25 +70,27 @@ public class PPTView: UIView {
     }
     
     public typealias PageDidClickAction = (clickedIndex: Int) -> Void
-    public typealias SetupImageForImageView = (imageView: UIImageView, index: Int) -> Void
-    
+    public typealias SetupImageAndTitle = (titleLabel: UILabel, imageView: UIImageView, index: Int) -> Void
+    public typealias ImagesCount = () -> Int
     //MARK:- 可供外部修改的属性
-    
     // pageControl的位置 默认为底部中间
     public var pageControlPosition: PageControlPosition = .BottomCenter
     
     // 点击响应
     public var pageDidClick:PageDidClickAction?
     
-    // 设置图片
-    public var setupImageForImageView: SetupImageForImageView?
+    // 设置图片和标题, 同时可以设置相关的控件的属性
+    public var setupImageAndTitle: SetupImageAndTitle?
     
     // 滚动间隔
     public var timerInterval = 3.0
     
     /// 图片总数, 需要在初始化的时候指定*
-    private var imagesCount = 0
-    
+    var imagesCount: ImagesCount!
+    /// 总页数
+    private var pageCount: Int {
+        return self.imagesCount()
+    }
     /// 其他page的颜色
     public var pageIndicatorTintColor = UIColor.whiteColor() {
         willSet {
@@ -61,41 +104,6 @@ public class PPTView: UIView {
             pageControl.currentPageIndicatorTintColor = newValue
         }
     }
-
-    
-    /// 文字和图片的个数需要相等
-    public var titlesArray: [String]? = nil {
-        willSet {
-            if let titles = newValue {
-                //调试过程中会触发断言
-                assert(titles.count == imagesCount, "标题的个数需要和图片的个数相等")
-                // 实际运行中会不显示标题
-                if titles.count != imagesCount {
-                    return
-                }
-                
-                // 如果设置了title 那么添加textLabel
-                insertSubview(textLabel, belowSubview: pageControl)
-                textLabel.text = titles[currentIndex]
-
-            }
-        }
-    }
-
-    // 文字的颜色 默认为黑色
-    public var textColor = UIColor.blackColor() {
-        didSet {
-            textLabel.textColor = textColor
-        }
-    }
-    
-    // 文字背景颜色 默认为半透明白色
-    public var textBackgroundColor = UIColor.whiteColor() {
-        didSet {
-            textLabel.backgroundColor = textBackgroundColor
-        }
-    }
-
     
     /// 是否自动滚动, 默认为自动滚动
     public var autoScroll = true {
@@ -121,14 +129,14 @@ public class PPTView: UIView {
         
         if let strongSelf = self {
             scroll.delegate = strongSelf
-
+            
         }
         scroll.bounces = false
         scroll.showsVerticalScrollIndicator = false
         scroll.showsHorizontalScrollIndicator = false
         scroll.pagingEnabled = true
         return scroll
-    }()
+        }()
     
     private lazy var pageControl: UIPageControl = {
         let pageC = UIPageControl()
@@ -139,38 +147,45 @@ public class PPTView: UIView {
         return pageC
     }()
     
-    /// 显示文字 在设置了文字的时候才会添加label
-    private lazy var textLabel: UILabel = {
-        let label = UILabel()
-        label.textColor = UIColor.blackColor()
-        label.textAlignment = .Center
-        label.backgroundColor = UIColor(red: 255.0/255.0, green: 255.0/255.0, blue: 255.0/255.0, alpha: 0.8)
-        return label
-    }()
-    
-    lazy var currentImageView: UIImageView = {
-        let imageView = UIImageView()
-        imageView.contentMode = .ScaleAspectFill
-        /// 可点击
-        imageView.userInteractionEnabled = true
+    lazy var currentPPTImageView: PPTImageView = {
+        let imageView = PPTImageView()
         return imageView
     }()
-
-    lazy var rightImageView = UIImageView()
-    lazy var leftImageView = UIImageView()
+    
+    lazy var rightPPTImageView = PPTImageView()
+    lazy var leftPPTImageView = PPTImageView()
+    
+    // MARK: - 可链式调用
+    public class func PPTViewWithImagesCount(imagesCount: ImagesCount) -> PPTView {
+        return PPTView(imagesCount: imagesCount)
+    }
+    public func setupImageAndTitle(setupImageAndTitle: SetupImageAndTitle) -> Self {
+        self.setupImageAndTitle = setupImageAndTitle
+        return self
+    }
+    public func setupPageDidClickAction(pageDidClick: PageDidClickAction?) -> Self {
+        self.pageDidClick = pageDidClick
+        return self
+    }
     
     //MARK:- 初始化
     // 遍历构造器, 不监控点击事件的时候可以使用
-    public convenience init(imagesCount: Int, setupImageForImageView: SetupImageForImageView?) {
-        self.init(imagesCount: imagesCount, setupImageForImageView: setupImageForImageView, pageDidClick: nil)
+    public convenience init(imagesCount: ImagesCount, setupImageAndTitle: SetupImageAndTitle) {
+        self.init(imagesCount: imagesCount, setupImageAndTitle: setupImageAndTitle, pageDidClick: nil)
     }
     
-    public init(imagesCount: Int, setupImageForImageView: SetupImageForImageView?, pageDidClick: PageDidClickAction?) {
+    private init(imagesCount: ImagesCount) {
+        self.imagesCount = imagesCount
+        super.init(frame: CGRectZero)
+        initialization()
+    }
+    
+    public init(imagesCount: ImagesCount, setupImageAndTitle: SetupImageAndTitle, pageDidClick: PageDidClickAction?) {
         
-        // 这个blosure 处理点击
+        // 这个Closure 处理点击
         self.pageDidClick = pageDidClick
-        // 这个blosure获取图片 相当于UITableView的cellForRow...方法
-        self.setupImageForImageView = setupImageForImageView
+        // 这个Closure获取图片 相当于UITableView的cellForRow...方法
+        self.setupImageAndTitle = setupImageAndTitle
         // 相当于UITableView的numberOfRows...方法
         self.imagesCount = imagesCount
         
@@ -191,61 +206,62 @@ public class PPTView: UIView {
     private func initialization()  {
         let tapGuesture = UITapGestureRecognizer(target: self, action: #selector(self.imageTapdAction))
         tapGuesture.numberOfTapsRequired = 1
-        currentImageView.addGestureRecognizer(tapGuesture)
-        
-        leftImageView.contentMode = .ScaleAspectFill
-        rightImageView.contentMode = .ScaleAspectFill
-
-        pageControl.numberOfPages = imagesCount
-        pageControl.sizeForNumberOfPages(imagesCount)
+        currentPPTImageView.addGestureRecognizer(tapGuesture)
+        setupPageControl()
         
         addSubview(scrollView)
         addSubview(pageControl)
-
-        scrollView.addSubview(currentImageView)
-        scrollView.addSubview(leftImageView)
-        scrollView.addSubview(rightImageView)
+        
+        scrollView.addSubview(currentPPTImageView)
+        scrollView.addSubview(leftPPTImageView)
+        scrollView.addSubview(rightPPTImageView)
         // 添加初始化图片
         loadImages()
-        
+        ///
         startTimer()
-        
     }
     
+    private func setupPageControl() {
+        
+        pageControl.numberOfPages = pageCount
+        pageControl.sizeForNumberOfPages(pageCount)
+    }
+    
+    
+    public func reloadData() {
+        currentIndex = -1
+        setupPageControl()
+        loadImages()
+        startTimer()
+    }
     override public func layoutSubviews() {
         super.layoutSubviews()
-        
         scrollView.frame = bounds
-        
+        let pageHeight:CGFloat = 28.0
         let width = bounds.size.width
         let height = bounds.size.height
-        let pageHeight:CGFloat = 28.0
-        
-        
         
         switch pageControlPosition {
-            case .BottomLeft:
-                pageControl.frame = CGRect(x: 0, y: height - pageHeight, width: width / 2, height: pageHeight)
-
-            case .BottomCenter:
-                pageControl.frame = CGRect(x: 0, y: height - pageHeight, width: width, height: pageHeight)
-
-            case .BottomRight:
-                pageControl.frame = CGRect(x: width / 2, y: height - pageHeight, width: width / 2, height: pageHeight)
-
-            case .TopCenter:
-                pageControl.frame = CGRect(x: 0, y: 0, width: width, height: pageHeight)
-
+        case .BottomLeft:
+            pageControl.frame = CGRect(x: 0, y: height - pageHeight, width: width / 2, height: pageHeight)
+            
+        case .BottomCenter:
+            pageControl.frame = CGRect(x: 0, y: height - pageHeight, width: width, height: pageHeight)
+            
+        case .BottomRight:
+            pageControl.frame = CGRect(x: width / 2, y: height - pageHeight, width: width / 2, height: pageHeight)
+            
+        case .TopCenter:
+            pageControl.frame = CGRect(x: 0, y: 0, width: width, height: pageHeight)
         }
         
-        currentImageView.frame = CGRect(x: width, y: 0, width: width, height: height)
-        leftImageView.frame = CGRect(x: 0, y: 0, width: width, height: height)
-        rightImageView.frame = CGRect(x: width * 2, y: 0, width: width, height: height)
-        textLabel.frame = CGRect(x: 0, y: height - pageHeight, width: width, height: pageHeight)
-
+        currentPPTImageView.frame = CGRect(x: width, y: 0, width: width, height: height)
+        leftPPTImageView.frame = CGRect(x: 0, y: 0, width: width, height: height)
+        rightPPTImageView.frame = CGRect(x: width * 2, y: 0, width: width, height: height)
+        
         scrollView.contentOffset = CGPoint(x: width, y: 0)
         scrollView.contentSize = CGSize(width: 3 * width, height: 0)
-
+        
     }
     
     /// 开启倒计时
@@ -272,7 +288,7 @@ public class PPTView: UIView {
         UIView.animateWithDuration(3.0, animations: {
             self.scrollView.setContentOffset(CGPoint(x: self.bounds.size.width * 2, y: 0), animated: true)
             
-        }, completion: nil)
+            }, completion: nil)
         
     }
     
@@ -281,7 +297,7 @@ public class PPTView: UIView {
     }
     
     deinit {
-//        debugPrint("\(self.debugDescription) --- 销毁")
+        //        debugPrint("\(self.debugDescription) --- 销毁")
         stopTimer()
     }
     
@@ -290,7 +306,7 @@ public class PPTView: UIView {
         super.willMoveToSuperview(newSuperview)
         if newSuperview == nil {
             stopTimer()
-
+            
         }
     }
 }
@@ -301,7 +317,7 @@ extension PPTView: UIScrollViewDelegate {
     public func scrollViewWillBeginDragging(scrollView: UIScrollView) {
         if autoScroll {
             stopTimer()
-
+            
         }
     }
     
@@ -310,7 +326,7 @@ extension PPTView: UIScrollViewDelegate {
         if autoScroll {
             scrollDirection = .Left
             startTimer()
-
+            
         }
     }
     
@@ -319,12 +335,12 @@ extension PPTView: UIScrollViewDelegate {
         // 重新加载图片
         scrollDirection = .Left
         loadImages()
-
+        
     }
     
     /// scrollview的滚动是由拖拽触发的时候,在它将要停止时调用
     public func scrollViewDidEndDecelerating(scrollView: UIScrollView) {
-        // fabs 绝对值
+        // 1/2屏
         if fabs(scrollView.contentOffset.x - scrollView.bounds.size.width) > scrollView.bounds.size.width / 2 {
             
             scrollDirection = scrollView.contentOffset.x > bounds.size.width ? .Left : .Right
@@ -332,40 +348,40 @@ extension PPTView: UIScrollViewDelegate {
             loadImages()
         }
         
-
+        
     }
     
     
     private func loadImages() {
         
+        if pageCount == 0 {
+            return
+        }
         // 根据滚动方向不同设置将要显示的图片下标
         switch scrollDirection {
             
-            case .Left:
-                currentIndex = (currentIndex + 1) % imagesCount
-
-            case .Right:
-                currentIndex = (currentIndex - 1 + imagesCount) % imagesCount
+        case .Left:
+            currentIndex = (currentIndex + 1) % pageCount
+            
+        case .Right:
+            
+            currentIndex = (currentIndex - 1 + pageCount) % pageCount
             
         }
         
-        leftIndex = (currentIndex - 1 + imagesCount) % imagesCount
-        rightIndex = (currentIndex + 1) % imagesCount
+        leftIndex = (currentIndex - 1 + pageCount) % pageCount
+        rightIndex = (currentIndex + 1) % pageCount
         
+        setupImageAndTitle?(titleLabel: currentPPTImageView.titleLabel, imageView: currentPPTImageView.imageView, index: currentIndex)
+        setupImageAndTitle?(titleLabel: rightPPTImageView.titleLabel, imageView: rightPPTImageView.imageView, index: rightIndex)
+        setupImageAndTitle?(titleLabel: leftPPTImageView.titleLabel, imageView: leftPPTImageView.imageView, index: leftIndex)
         
-        setupImageForImageView?(imageView: currentImageView, index: currentIndex)
-        setupImageForImageView?(imageView: rightImageView, index: rightIndex)
-        setupImageForImageView?(imageView: leftImageView, index: leftIndex)
         
         pageControl.currentPage = currentIndex
-        if let titles = titlesArray { // 已经添加了textLabel 直接设置文字即可
-            textLabel.text = titles[currentIndex]
-
-        }
+        
         // 将currentImageView显示在屏幕上
         scrollView.contentOffset = CGPoint(x: bounds.size.width, y: 0)
-
-
+        
     }
 }
 

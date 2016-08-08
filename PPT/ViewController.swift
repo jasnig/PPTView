@@ -39,26 +39,23 @@ class ViewController: UIViewController {
     }
     
     func addPptView1()  {
-        pptView1 = PPTView(imagesCount: images.count, setupImageForImageView: {[unowned self] (imageView, index) in
-            //设置图片
-            // 加载网络图片示例
-            //                imageView.kf_setImageWithURL(NSURL(string: self.imagesUrl[index]), placeholderImage: nil)
-            
-            // 本地图片
-            imageView.image = self.images[index]
-            
-        }) {[unowned self] (clickedIndex) in
+        
+        pptView1 = PPTView(imagesCount: { () -> Int in
+            return self.images.count
+            }, setupImageAndTitle: { (titleLabel, imageView, index) in
+                imageView.image = self.images[index]
+                titleLabel.text = self.titles[index]
+                titleLabel.textColor = UIColor.redColor()
+        }) { (clickedIndex) in
             // 处理点击
             print(clickedIndex)
             self.messageLabel.text = "点击了第\(clickedIndex)张图片"
-            
         }
+
         pptView1.frame = CGRect(x: 0, y: 100, width: view.bounds.size.width, height: 200)
-        pptView1.titlesArray = titles
         //设置pageController的颜色
         pptView1.pageIndicatorTintColor = UIColor.whiteColor()
         pptView1.currentPageIndicatorTintColor = UIColor.brownColor()
-        pptView1.textColor = UIColor.redColor()
         pptView1.pageControlPosition = .TopCenter
         // 滚动间隔, 默认三秒
         //        pptView.timerInterval = 2.0
@@ -66,30 +63,32 @@ class ViewController: UIViewController {
         // 关闭自动滚动
         //        scrollImage.autoScorll = false
         view.addSubview(pptView1)
+        /// 如果是网络获取到的信息, 获取完毕可以调用reloadData()重新加载页面
+        //        pptView1.reloadData()
 
     }
 
     
     func addPptView2()  {
-        pptView2 = PPTView(imagesCount: images.count, setupImageForImageView: {[unowned self] (imageView, index) in
-            //设置图片
-            // 加载网络图片示例
-            //                imageView.kf_setImageWithURL(NSURL(string: self.imagesUrl[index]), placeholderImage: nil)
-            
-            // 本地图片
+        
+        pptView2 = PPTView.PPTViewWithImagesCount({ () -> Int in
+            return self.images.count
+        })
+        .setupImageAndTitle({ (titleLabel, imageView, index) in
             imageView.image = self.images[index]
-            
-        }) {[unowned self] (clickedIndex) in
+            titleLabel.text = self.titles[index]
+            titleLabel.textColor = UIColor.redColor()
+        })
+        .setupPageDidClickAction({ (clickedIndex) in
             // 处理点击
             print(clickedIndex)
             self.messageLabel.text = "点击了第\(clickedIndex)张图片"
-            
-        }
+        })
+    
         pptView2.frame = CGRect(x: 0, y: 310, width: view.bounds.size.width, height: 200)
         //设置pageController的颜色
         pptView2.pageIndicatorTintColor = UIColor.whiteColor()
         pptView2.currentPageIndicatorTintColor = UIColor.brownColor()
-        pptView2.textColor = UIColor.redColor()
         pptView2.pageControlPosition = .BottomCenter
         // 滚动间隔, 默认三秒
         //        pptView.timerInterval = 2.0
@@ -98,6 +97,8 @@ class ViewController: UIViewController {
         //        scrollImage.autoScorll = false
         view.addSubview(pptView2)
         
+        /// 如果是网络获取到的信息, 获取完毕可以调用reloadData()重新加载页面
+//        pptView2.reloadData()
     }
 
     override func didReceiveMemoryWarning() {

@@ -23,15 +23,19 @@ class TestController: UIViewController {
         let images = [UIImage(named:"1"), UIImage(named: "2"), UIImage(named: "3"), UIImage(named: "4"), UIImage(named:"5")]
         let titles = ["这是第1个页面", "这是第2个页面", "这是第3个页面", "这是第4个页面", "这是第5个页面"]
         
-        let scrollImage = PPTView(imagesCount: images.count, setupImageForImageView: { (imageView, index) in
-            // 这里可以直接使用 kingfisher之类的框架直接来加载网络图片
-            imageView.image = images[index]
-        }) { (clickedIndex) in
+        let scrollImage = PPTView.PPTViewWithImagesCount({ () -> Int in
+            return images.count
+        })
+        .setupImageAndTitle({ (titleLabel, imageView, index) in
+                imageView.image = images[index]
+                titleLabel.text = titles[index]
+                titleLabel.textColor = UIColor.redColor()
+        })
+        .setupPageDidClickAction({ (clickedIndex) in
+            // 处理点击
             print(clickedIndex)
-        }
+        })
         scrollImage.frame = CGRect(x: 0, y: 200, width: view.bounds.size.width, height: 200)
-        scrollImage.titlesArray = titles
-        scrollImage.textColor = UIColor.redColor()
         //        scrollImage.pageControlPosition = .Right
         
         //        scrollImage.autoScorll = false
